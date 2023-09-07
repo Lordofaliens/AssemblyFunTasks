@@ -1,2 +1,2 @@
 # COlabs
-COlabs repository
+Brainfucked even without a brainfuck
