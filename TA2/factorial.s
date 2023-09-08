@@ -9,36 +9,64 @@ exception: .asciz "InvalidInputException: %ld\n"
 .global main
 
 factorial: 
+    # prologue
+    pushq %rbp
+    movq %rsp, %rbp
 
     # check on base case
-    cmpq    $1, %rdx  
-    jle     factorial_done
+    cmpq    $1, %rdi
+    je     factorial_done
 
-    imul %rdx, %rax # multiplying res by multiplier
-    decq %rdx # decrementing multiplier, so we go through every number in range 1 ... n
+    #pre function routine
+    pushq %rdi
+    decq %rdi
+
     call factorial # recursion call
 
+    #post function routine
+    popq %rsi
+    imul %rsi, %rdi
+    
     factorial_done:
+        movq %rdi, %rax
+        movq %rbp, %rsp
+        popq %rbp
         ret 
 
 
-controller: 
+controller:
+    # prologue
+    pushq %rbp
+    movq %rsp, %rbp
 
-    cmpq $0, %rdi  # Compare a value with a register
-    jl factorial_input_handler # Error handler
-    cmpq $20, %rdi  # Compare a value with a register
-    jg factorial_input_handler # Error handler
-    movq $1, %rax # set initial %rax value
-    movq %rdi, %rdx # set %rdi (multiplier) to its max value 
-    call factorial
-    ret
+    # check user's input
+    cmpq $0, %rdi           
+    jl factorial_input_handler  # handle lower boundary
+    je zero_base_case       # handle base case
+    cmpq $20, %rdi          
+    jg factorial_input_handler  # handle higher boundary
+    
+    # Call the factorial subroutine
+    call factorial          
+    jmp controller_done
 
-    factorial_input_handler: 
-        movq %rdi, %rsi
-        lea exception, %rdi 
-        movq $0, %rax
+    # base case
+    zero_base_case:
+        movq $1, %rax       
+        jmp controller_done
+
+    # invalid input case
+    factorial_input_handler:
+        movq %rdi, %rsi    
+        lea exception, %rdi  
+        movq $0, %rax # Return 0 in %rax to indicate an exception
+    
+    controller_done:
+        # epilogue
+        movq %rbp, %rsp
+        popq %rbp
+        
         ret
-
     
 
 main:
@@ -68,17 +96,17 @@ main:
     call controller 
     cmp $0, %rax
     je endErr # skip main logic and output the exception
-
-    call factorial # main function
     
-    # printing the result of calculations
+    # printing the result of calculations 
     lea resultFormat, %rdi
     movq %rax, %rsi
+    movq $0, %rax
     call printf
     
     # epilogue
     movq %rbp, %rsp
     popq %rbp
+    call end
 
 end:                # end with code 0
     movq $0, %rdi
@@ -86,5 +114,4 @@ end:                # end with code 0
 
 endErr:             # end with code 1
     call printf
-    movq $0, %rdi
-    call exit
+    call end

@@ -44,6 +44,13 @@ main:
     call scanf
     movq -8(%rbp), %r8
 
+    sub $16, %rsp
+    movq $input, %rdi
+    lea -8(%rbp), %rsi #take my pointer and save it there
+    movq $0, %rax 
+    call scanf
+    movq -8(%rbp), %r9
+
     movq $0, %rsi
     movq $expIntro, %rdi  # Load the address of the format string
     movq $0, %rsi 
