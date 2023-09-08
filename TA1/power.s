@@ -1,83 +1,108 @@
 .text
+introFormat: .asciz "<---POWERS--->\n\n*Made by: Vlad (vmaksymiuk), Pablo (Pablo's NetId)*\n\n%s"
 baseIntro: .asciz "Print base: "
 expIntro: .asciz "Print exp: "
-name: .asciz "made by: Vlad (vmaksymiuk), Pablo( Pablo's NetId)"
-base: .quad 6
-exp: .quad 5
-resultFormat: .asciz "Result: %ld\n"
-signFormat: .asciz "POWERS: \n%s\n"
 input: .asciz "%ld"
+resultFormat: .asciz "Result: %ld\n"
+exception: .asciz "UnsupportedInputException: %ld\n"
 
-output2: .asciz "Hello %d!"
 
 .global main
 
 pow: 
-    movq %r8, %rsi
-    movq base(%rip), %rdi
+    # prologue
+    pushq %rbp
+    movq %rsp, %rbp
     movq $1, %rax
+
     pow_loop:
-        testq %rsi, %rsi   # Check if exp is 0
-        jz pow_done         # If exp is 0, exit the loop
-        IMUL %rdi, %rax   # Multiply result by base
-        decq %rsi           # Decrement exp
-        jmp pow_loop        # Repeat the loop
+        # Check if exp is 0
+        cmpq $0, %rsi   
+        jz pow_done  
+
+        # Multiply result by base and decrement the exponent
+        imulq %rdi, %rax   
+        decq %rsi 
+
+        # Repeat the loop
+        jmp pow_loop        
 
     pow_done:
+        # epilogue
+        movq %rbp, %rsp
+        popq %rbp
         ret
 
 
-main:
+controller: 
+    # prologue
     pushq %rbp
     movq %rsp, %rbp
 
-    movq $0, %rsi
-    movq $baseIntro, %rdi  # Load the address of the format string
-    movq $0, %rsi 
-    movq $0, %rax
-    call printf
-
-    sub $16, %rsp
-    movq $input, %rdi
-    lea -8(%rbp), %rsi #take my pointer and save it there
-    movq $0, %rax 
-    call scanf
-    movq -8(%rbp), %r8
-
-    sub $16, %rsp
-    movq $input, %rdi
-    lea -8(%rbp), %rsi #take my pointer and save it there
-    movq $0, %rax 
-    call scanf
-    movq -8(%rbp), %r9
-
-    movq $0, %rsi
-    movq $expIntro, %rdi  # Load the address of the format string
-    movq $0, %rsi 
-    movq $0, %rax
-    call printf
-
-    movq %rbp, %rsp
-
-    #sub $16, %rsp
-    #movq $input, %rdi
-    #lea -8(%rbp), %rsi #take my pointer and save it there
-    #movq $0, %rax 
-    #call scanf
-    #movq -8(%rbp), %r9
-
+    cmpq $0, %rsi
+    jl exp_input_handler
     call pow
-    lea resultFormat, %rdi  # Load the address of the format string
+    jmp controller_done
+    # invalid input case
+    exp_input_handler:   
+        lea exception, %rdi  
+        movq $0, %rax
+        call printf
+        call end
+
+    controller_done:
+        # epilogue
+        movq %rbp, %rsp
+        popq %rbp
+        ret
+
+main:
+    # prologue
+    pushq %rbp
+    movq %rsp, %rbp
     
-    movq %rax, %rsi
-    call printf
-    
+    # print intro and base input
     movq $0, %rsi
-    movq $signFormat, %rdi  # Load the address of the format string
-    movq $name, %rsi 
+    lea introFormat, %rdi  
+    movq $baseIntro, %rsi 
     movq $0, %rax
     call printf
 
+    # scan first variable
+    sub $16, %rsp # reserve place in stack
+    movq $input, %rdi # input field
+    lea -16(%rbp), %rsi # pointer where the data will be stored
+    movq $0, %rax # preparation for scanning
+    call scanf
+    movq -16(%rbp), %r12 # store data in register
+
+    # print exp input
+    movq $0, %rsi
+    lea expIntro, %rdi  # Load the address of the format string
+    movq $0, %rsi 
+    movq $0, %rax
+    call printf
+
+    # scan second variable
+    sub $16, %rsp
+    movq $input, %rdi
+    lea -16(%rbp), %rsi
+    movq $0, %rax 
+    call scanf
+    movq -16(%rbp), %r13
+
+    # pow function call
+    movq %r12, %rdi
+    movq %r13, %rsi
+    call controller
+
+    # printing the output
+    lea resultFormat, %rdi
+    movq %rax, %rsi
+    movq $0, %rax
+    call printf
+
+    # epilogue
     movq %rbp, %rsp
     popq %rbp
 
