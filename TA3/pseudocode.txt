@@ -1,0 +1,19 @@
+# pseudocode
+
+%rax - stores the element (MESSAGE(%rcx))
+%rcx - stores index of element (init value 0)
+%rdx - stores index of next element
+%r8 - stores the amount of times to repeat the print
+%r9 - stores the value of element
+
+move init array to another register
+iterate through the array MESSAGE beginning with index 0
+for every element do:
+1)shift >>
+2)store value of next index in %rdx
+3)shift >>>>
+4)store value of amount of times in %r8
+5)shift >
+6)store value of element in %r9
+7)print the element from %r9
+8)check whether %rdx equals to zero, if not - repeat the cycle
