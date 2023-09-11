@@ -6,7 +6,6 @@ input: .asciz "%ld"
 resultFormat: .asciz "Result: %ld\n"
 exception: .asciz "UnsupportedInputException: %ld\n"
 
-
 .global main
 
 pow: 
@@ -18,7 +17,7 @@ pow:
     pow_loop:
         # Check if exp is 0
         cmpq $0, %rsi   
-        jz pow_done  
+        je pow_done  
 
         # Multiply result by base and decrement the exponent
         imulq %rdi, %rax   
@@ -61,8 +60,10 @@ main:
     pushq %rbp
     movq %rsp, %rbp
     
+    pushq %r12
+    pushq %r13
+
     # print intro and base input
-    movq $0, %rsi
     lea introFormat, %rdi  
     movq $baseIntro, %rsi 
     movq $0, %rax
@@ -102,6 +103,8 @@ main:
     movq $0, %rax
     call printf
 
+    popq %r13
+    popq %r12
     # epilogue
     movq %rbp, %rsp
     popq %rbp
