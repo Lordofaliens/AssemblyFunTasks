@@ -129,14 +129,11 @@ main:
     call scanf # scanning
     movq -8(%rbp), %rdi # copy input data to %rdi, following the calling convention
 
-    movq %rbp, %rsp
 
     # calling factorial through controller
-    pushq %rax            # Save %rax on the stack
-    subq $8, %rsp         # Adjust the stack pointer by 8 bytes to maintain alignment
+    
     call controller
-    addq $8, %rsp         # Restore the stack pointer after the call
-    popq %rax             # Restore %rax from the stack
+
 
 
     # epilogue
