@@ -33,10 +33,10 @@ decode:
     pushq   %r15            # save callee-saved register %r15
 
 	movq $0, %rdx           # set init next element index to 0       
-	
-	decode_loop:
+	pushq %rdi
+    decode_loop:
 		# storing element in %rbx 
-		movq $MESSAGE, %rax
+		movq -48(%rbp), %rax
 		movq (%rax,%rdx,8), %rbx
 
 		# storing value of element in %r13 
@@ -111,12 +111,14 @@ decode:
 
             # insert variables into the string and print it
             insert_variables:
+                pushq %rax
                 movq    $formatChar, %rdi  # Set format string as the first argument
                 movq    %r14, %rdx  # second variable (color) 
                 movq    %r15, %rcx  # third variable (background) 
                 movq    %r13, %r8   # fourth variable (value) 
                 movq $0, %rax
                 call printf
+                popq %rax
             
             popq %rdx # Restore stack alignment
 
@@ -131,8 +133,9 @@ decode:
 		
 	# epilogue
 	decode_done:
-        pushq   %r15            # restore callee-saved register %r15
-        pushq   %r14            # restore callee-saved register %r14
+        popq %rdi
+        popq   %r15            # restore callee-saved register %r15
+        popq   %r14            # restore callee-saved register %r14
 		popq	%r13            # restore callee-saved register %r13
 		popq	%r12            # restore callee-saved register %r12
 		popq	%rbx            # restore callee-saved register %rbx
@@ -143,9 +146,20 @@ decode:
 main:
 	pushq	%rbp 			# push the base pointer (and align the stack)
 	movq	%rsp, %rbp		# copy stack pointer value to base pointer
-
+    pushq	%rbx            # save callee-saved register %rbx
+	pushq	%r12            # save callee-saved register %r12
+	pushq	%r13            # save callee-saved register %r13
+    pushq   %r14            # save callee-saved register %r14
+    pushq   %r15            # save callee-saved register %r15
+    subq $8, %rsp
 	movq	$MESSAGE, %rdi	# first parameter: address of the message
 	call	decode			# call decode
+    addq $8, %rsp
+    pushq   %r15            # restore callee-saved register %r15
+    pushq   %r14            # restore callee-saved register %r14
+    popq	%r13            # restore callee-saved register %r13
+    popq	%r12            # restore callee-saved register %r12
+    popq	%rbx            # restore callee-saved register %rbx
 
 	popq	%rbp			# restore base pointer location 
 	movq	$0, %rdi		# load program exit code
