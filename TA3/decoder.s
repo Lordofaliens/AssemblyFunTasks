@@ -25,12 +25,12 @@ decode:
 	pushq	%r12            # save callee-saved register %r12
 	pushq	%r13            # save callee-saved register %r13
 	pushq	%r14            # save callee-saved register %r14
-
+	pushq %rdi
 	movq $0, %rdx
 	# change callee and caller registers
 	decode_loop:
 		# storing element in %r12 
-		movq $MESSAGE, %rax
+		movq -32(%rbp), %rax
 		movq (%rax,%rdx,8), %r12
 
 		# storing value of element in %r14 
@@ -45,12 +45,10 @@ decode:
 		
 		# printing using loop
 		print_char:
-			pushq   %rax # Align the stack
 			movq $formatChar, %rdi
 			movq %r14, %rsi
 			movq $0, %rax
 			call printf
-			popq %rax # Restore stack alignment
 
 			# check whether element is printed the required number of times
 			decq %r13
@@ -65,6 +63,7 @@ decode:
 		
 	# epilogue
 	decode_done:
+		popq    %rdi
 		popq	%r14            # restore callee-saved register %r14
 		popq	%r13            # restore callee-saved register %r13
 		popq	%r12            # restore callee-saved register %r12
