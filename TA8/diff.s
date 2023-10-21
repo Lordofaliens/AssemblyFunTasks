@@ -1,121 +1,190 @@
 .section .data
-separator: .asciz ": "
-file1_text:
-    .asciz "Hi, this is a testfile.\nTestfile 1 to be precise.\n"
-file2_text:
-    .asciz "Hi, this is a testfile.\nTestfile 2 to be precise.\n"
+str1:
+    .asciz "This is a test string"
+str2:
+    .asciz "Test string for difference"
+
+i_flag:
+    .asciz "-i"
+
+b_flag:
+    .asciz "-B"
+
+usage_format: 
+    .asciz "usage: <program> <-i> <-B>\n"
+
+.section .bss
+flags:
+    .long 0
 
 .section .text
-.global main
+.global main 
 
 main:
-    # Compare the two files
-    movq $file1_text, %rdi  # Load the address of file1_text
-    movq $file2_text, %rsi  # Load the address of file2_text
-    pushq %r10
-    pushq %r11
-    call compare_files
-    popq %r11
-    popq %r10
+    # Initialize flags to 0
+    pushq %rbp
+	movq %rsp, %rbp
+    movq $0, flags
+    cmp $3, %rdi
+	jg wrong_argc
+    pushq %rdx
+    pushq %rcx
 
+# I DONT KNOW HOW TO PARSE THESE PARAMETERS!!!!!!!!!!!!!
+parse_args:
+    # Check if the argument is '-i'
+    popq %r12
+    movq $i_flag, %r14
+    cmpq %r12, %r14
+    je found_i
+
+    # Check if the argument is '-B'
+    movq $b_flag, %r13
+    cmpq %r12, %r13
+    je found_B
+
+    # Argument is not a flag; move to the next argument
+    jmp done
+
+found_i:
+    incq flags # Set the -i flag
+    jmp next_arg
+
+found_B:
+    incq flags # Set the -B flag
+    addq $8, %rcx # Move to the next argument (value of -B)
+    popq %rax     # Get the value of -B
+    jmp next_arg
+next_arg:
+    addq $8, %rsp # Move to the next argument
+    jmp parse_args
+
+done:
+    # Check the flags and compute the difference
+    cmpq $0, flags
+    je no_flags
+
+    # Handle -i flag (case-insensitive)
+    cmpq $1, flags
+    je case_insensitive
+
+    # Handle -B flag (print B value)
+    cmpq $2, flags
+    je print_B
+
+no_flags:
+    leaq str1(%rip), %rdi
+    leaq str2(%rip), %rsi
+    call str_diff
+
+exit:
     # Exit the program
-    mov $60, %rax          # syscall number for sys_exit
-    xor %rdi, %rdi         # exit status
+    movq $60, %rax
+    xorq %rdi, %rdi
     syscall
 
-compare_files:
-    # Compare two strings line by line
-    # Input: %rdi (address of file1_text), %rsi (address of file2_text)
-    xor %rcx, %rcx         # Clear %rcx for line counter
-.loop:
-    # Load the next byte from file1_text into %al
-    movb (%rsi), %al
-    # Increment the source pointer
-    addq $1, %rsi
+str_diff:
+    # Arguments: (char* str1, char* str2)
+    # Output: None
+    movq %rdi, %rsi # str1
+    movq %rsi, %rdi # str2
 
-    # Load the next byte from file2_text into %bl
-    movb (%rdi), %bl
-    # Increment the destination pointer
-    addq $1, %rdi
-    cmp %al, %bl            # Compare the bytes from both files
-    jne .difference         # If they are not equal, go to the difference label
+    xorq %rcx, %rcx # Counter for differences
 
-    test %al, %al           # Check if it's the null terminator (end of line)
-    jz .next_line           # If yes, go to the next line
+    compare_loop:
+        movzbq (%rsi), %rdx
+        movzbq (%rdi), %rbx
+        cmpq %rdx, %rbx
+        jne count_diff
 
-    jmp .loop               # Repeat the loop
+        incq %rsi
+        incq %rdi
+        cmpb $0, %al
+        jne compare_loop
 
-    .difference:
-        # Print the line number and difference
-        movq $1, %rax           # syscall number for sys_write
-        movq $1, %rdi           # file descriptor 1 (stdout)
-        lea (%rcx), %rdx        # Load the line number into %rdx (convert from counter)
-        call print_number       # Print the line number
-        movq $1, %rax           # syscall number for sys_write
-        movq $1, %rdi           # file descriptor 1 (stdout)
-        movq $separator, %rsi        # Separator
-        movq $2, %rdx           # Separator length
-        syscall
-        movq $1, %rax           # syscall number for sys_write
-        movq $1, %rdi           # file descriptor 1 (stdout)
-        movsb                   # Load the different character from file1_text into %al
-        call print_char         # Print the different character
+        jmp done_compare
 
-    .next_line:
-        inc %rcx                # Increment the line counter
-        cmp %al, %bl            # Check if the last character was null terminator (end of line)
-        jnz .loop               # If not, continue the loop
+    count_diff:
+        incq %rcx
+        incq %rsi
+        incq %rdi
+        cmpb $0, %al
+        jne compare_loop
 
-    ret
+    done_compare:
+        # %rcx now contains the number of differences
+        # You can do something with it here
+        pushq %rcx
+        leaq format_diff(%rip), %rdi
+        call printf
+        addq $8, %rsp
+        ret
 
-print_number:
-    # Input: %rdx (number to print)
-    # Output: Prints the number
+case_insensitive:
+    leaq str1(%rip), %rdi
+    leaq str2(%rip), %rsi
+    call str_diff_case_insensitive
+    jmp exit
 
-    movq %rdx, %rcx         # Copy the number to %rcx
-    movq $10, %rax          # Set divisor to 10
-    xorq %rbx, %rbx         # Clear %rbx for tracking digits
-    subq %rbx, %rcx         # Initialize %rcx as zero
+print_B:
+    pushq %rax
+    leaq format_B(%rip), %rdi
+    call printf
+    addq $8, %rsp
+    jmp exit
 
-    .find_digits_loop:
-        cmpq $0, %rdx         # Check if the number is zero
-        je .found_all_digits  # If zero, we have found all digits
+str_diff_case_insensitive:
+    # This function is the same as str_diff, but it's case-insensitive
+    movq %rdi, %rsi
+    movq %rsi, %rdi
 
-        incq %rbx             # Increment digit counter
-        xorq %rdx, %rdx       # Clear %rdx (zero flag)
-        divq %rax             # Divide %rcx by 10, result in %rax, remainder in %rdx
-        addq $48, %rdx        # Convert remainder to ASCII
+    xorq %rcx, %rcx
 
-        pushq %rdx            # Push the ASCII digit onto the stack
-        jmp .find_digits_loop # Repeat the loop
+    compare_loop_insensitive:
+        movzbq (%rsi), %rdx
+        movzbq (%rdi), %rbx
+        cmpq %rdx, %rbx
+        je continue_compare
 
-    .found_all_digits:
-        # Print the digits in reverse order
-        movq $1, %rax          # syscall number for sys_write
-        movq $1, %rdi          # file descriptor 1 (stdout)
-        movq %rsp, %rsi        # Pointer to the last digit on the stack
-        movq %rbx, %rdx        # Number of digits to print
+        cmpb $'a', %al
+        jl count_diff
+        cmpb $'z', %al
+        jg count_diff
+        subb $'a' - 'A', %al
 
-    .print_digits_loop:
-        popq %r8               # Pop the next ASCII digit from the stack
-        movq %r8, %rdx         # Move it into %rdx for printing
-        syscall
-        decq %rbx              # Decrement digit counter
-        jg .print_digits_loop # Repeat if there are more digits
+        cmpb $'a', %ah
+        jl count_diff
+        cmpb $'z', %ah
+        jg count_diff
+        subb $'a' - 'A', %ah
 
-    ret
+        cmpb %al, %ah
+        jne count_diff
 
+        continue_compare:
+            incq %rsi
+            incq %rdi
+            cmpb $0, %al
+            jne compare_loop_insensitive
 
+        jmp done_compare
 
+wrong_argc:
+	movq $usage_format, %rdi
+	movq (%rsi), %rsi # %rsi still hold argv up to this point
+	call printf
+    
+    movq $1, %rax
+	movq %rbp, %rsp
+	popq %rbp
+	ret
 
+# Define the format strings for printing
+format_B:
+    .asciz "-B flag: %d\n"
+format_diff:
+    .asciz "Number of differences: %d\n"
 
-print_char:
-    # Input: %al (character to print)
-    # Output: Prints the character
-
-    movq $1, %rax           # syscall number for sys_write
-    movq $1, %rdi           # file descriptor 1 (stdout)
-    movq $1, %rdx           # Number of characters to print
-    syscall
-
-    ret
+# Define the format string for printing with -B and -i
+format_B_i:
+    .asciz "-B flag: %d\nNumber of differences (case-insensitive): %d\n"
