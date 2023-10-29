@@ -42,8 +42,7 @@ main:
 	jg more_args 
 continue_main:
     # copy addresses of the first two arguments to variables 
-	movq %rsi, %rax
-	movq (%rax), %rax
+	movq (%rsi), %rax
 	movq %rax, (file1_name_address)
 	movq %rsi, %rax
 	addq $8, %rax
@@ -67,7 +66,7 @@ continue_main:
 	movq $fd, %rdi
 	syscall
 
-    # open and save to memory first file
+    # open and save to memory second file
 	movq $sys_open, %rax
 	movq (file2_name_address), %rdi # file adress to second argument
 	movq $0, %rsi
@@ -160,42 +159,61 @@ check_file_ended:
 check_file_ended_file2_only:
 	cmpb $0, (%r14) # check if current character of file 2 is null
 	jne	after_check_no_eof # both not end, then continue 
-	je print_eof # only one end, then print diff
+	call print_diff # only one end, then print diff
+    jmp after_compare_files
+
 
 check_file_ended_file2_also:
 	cmpb $0, (%r14) 
 	je after_compare_files # both end, then end
-	jne	print_eof # only one end, then print diff
-
+	call print_diff # only one end, then print diff
+	jmp after_compare_files
 
 # the same check as for null, but now for \n
 check_nl:
-	cmpb	$10, (%r13) 
+	cmpb	$10, (%r13)
 	je	check_nl_file2_also
 	jne	check_nl_file2_only
 
 check_nl_file2_only:
 	cmpb	$10, (%r14) 
 	jne	after_check_no_nl
+
+	cmpb $1, (flag_B) 
+	jne	check_nl_file2_only_after_b_check
+	cmpq $1, (length_line_file1)
+	jne check_nl_file2_only_after_b_check
+	incq %r14
+	movq $1, %r9
+	movq %r14, %r12
+	jmp	compare_files
+check_nl_file2_only_after_b_check:
 	call	go_to_end_of_line_file1
 	incq %r14	# align strings to the first character after \n
 	jmp	after_check_nl
 
+
+
 check_nl_file2_also:
+	cmpb $1, (flag_B) 
+	jne	check_nl_file2_also_after_b_check
+	cmpq $1, (length_line_file2)
+	jne check_nl_file2_also_after_b_check
+	incq %r13
+	movq $1, %r8
+	movq %r13, %r11
+	jmp	compare_files
+check_nl_file2_also_after_b_check:
 	cmpb	$10, (%r14)
 	je	both_nl
 	call	go_to_end_of_line_file2
-	incq %r13  # align strings to the first character after \n
 
-    # handle -B flag, so jump to print the diff
-	cmpb $1, (flag_B) 
-	jne	after_check_nl
-
-    # set iterators to the beginnings of line in both files
-	subq $2, %r14  
+	incq %r13  
+	incq %r14  
 	movq $1, %r8   
 	movq $1, %r9    
 	movq %r13, %r11
+	movq %r14, %r12
 
 	jmp	compare_files
 
@@ -210,46 +228,6 @@ both_nl:
 	jmp	compare_files
 
 # print differences in case that one file ended before the second one
-print_eof:
-    # save current state from registers to variables
-	movq %r11, (current_line_address_file1)
-	movq %r12, (current_line_address_file2)
-	movq %r8, (length_line_file1)
-	movq %r9, (length_line_file2)
-	movq %r13, (current_character_address_file1)
-	movq %r14, (current_character_address_file2)
-
-    # writing, writing & again writing
-
-    # write >
-	xor	%rsi, %rsi
-	movq $string_output, %rdi
-	movq $file1, %rsi
-	call	printf
-    # write file1 (different line)
-	movq (current_line_address_file1), %r11
-	xor	%rsi, %rsi
-	movq $string_output, %rdi
-	movq %r11, %rsi
-	call printf
-    # write ---
-	xor	%rsi, %rsi
-	movq $string_output, %rdi
-	movq $line, %rsi
-	call printf
-    # write < 
-	xor	%rsi, %rsi
-	movq $string_output, %rdi
-	movq $file2, %rsi
-	call printf
-    # write file2 (different line)
-	movq (current_line_address_file2), %r12
-	xor	%rsi, %rsi
-	movq $string_output_nl, %rdi
-	movq %r12, %rsi
-	call printf
-	jmp	after_compare_files
-
 
 # print differences in case there is \n  before there is in the second one 
 # PS. the same logic as when file is ended, but don't finish the execution and continue with next line
@@ -261,7 +239,7 @@ print_diff:
 	movq %r9, (length_line_file2)
 	movq %r13, (current_character_address_file1)
 	movq %r14, (current_character_address_file2)
-
+	
 	movq $sys_write, %rax
 	movq $1, %rdi
 	movq $file1, %rsi

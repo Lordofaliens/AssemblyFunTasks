@@ -40,7 +40,6 @@ printf_:
     pushq %rcx
     pushq %rsi
 
-    # ????
     movq %rdi, %rdx        # Copy format string to %rdx
     movq %rsi, %rdi        # Set pointer to variable arguments (%rsi initially points to format string)
 

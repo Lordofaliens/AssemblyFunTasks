@@ -47,7 +47,7 @@ controller:
         lea exception, %rdi  
         movq $0, %rax
         call printf
-        call end
+        call after_compare_files
 
     controller_done:
         # epilogue
@@ -108,7 +108,3 @@ main:
     # epilogue
     movq %rbp, %rsp
     popq %rbp
-
-end:
-    movq $0, %rdi
-    call exit
